@@ -22,6 +22,7 @@ internal sealed class SwazorRazorEngine
     internal SwazorRazorEngine(string templatesRootPath)
     {
         this.templatesRootPath = templatesRootPath;
+
         templateKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (Directory.Exists(templatesRootPath))
@@ -35,6 +36,7 @@ internal sealed class SwazorRazorEngine
         }
 
         var fileSystem = RazorProjectFileSystem.Create(templatesRootPath);
+
         razorEngine = RazorProjectEngine.Create(RazorConfiguration.Default, fileSystem, builder =>
         {
             builder.SetRootNamespace("Swazor.Generated");
@@ -150,7 +152,8 @@ internal sealed class SwazorRazorEngine
         stream.Seek(0, SeekOrigin.Begin);
         var assembly = AssemblyLoadContext.Default.LoadFromStream(stream);
 
-        return assembly.GetTypes()
+        return assembly
+            .GetTypes()
             .First(t => typeof(SwazorTemplateBase).IsAssignableFrom(t) && !t.IsAbstract);
     }
 }

@@ -1,0 +1,16 @@
+@model Swazor.Rendering.OperationDescriptionContext
+<div>
+    <p>Creates a new product in the catalog</p>
+    <h4>Request body</h4>
+    <ul>
+        <li><code>Name</code> (string, required): The product name, max 200 characters.</li>
+        <li><code>Price</code> (decimal, required): The price in DKK, must be &gt; 0.</li>
+    </ul>
+    <h4>Responses</h4>
+    <ul>
+        @foreach (var responseCode in Model.ResponseCodes)
+        {
+            <li><code>@responseCode</code></li>
+        }
+    </ul>
+</div>
