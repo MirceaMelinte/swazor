@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
             services.AddOptions<SwazorOptions>();
         }
 
+        services.AddRazorViewRendering();
         services.AddSingleton<IDescriptionRenderer, RazorDescriptionRenderer>();
         services.AddHostedService<SwazorStartupValidator>();
 

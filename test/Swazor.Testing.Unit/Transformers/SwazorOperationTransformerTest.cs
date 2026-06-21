@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Swazor.Abstractions;
 using Swazor.Infrastructure;
 using Swazor.Rendering;
+using Swazor.Testing.Unit.Infrastructure;
 using Swazor.Transformers;
 
 public class SwazorOperationTransformerTest
@@ -57,7 +58,7 @@ public class SwazorOperationTransformerTest
         public async Task SetsDescriptionWhenTemplateExists()
         {
             // Arrange
-            var renderer = new StubRenderer(new Dictionary<string, string> { ["Products_GetById"] = "<p>rendered</p>" });
+            var renderer = new StubDescriptionRenderer(new Dictionary<string, string> { ["Products_GetById"] = "<p>rendered</p>" });
 
             var transformer = CreateTransformer(renderer);
             var operation = new OpenApiOperation();
@@ -74,7 +75,7 @@ public class SwazorOperationTransformerTest
         public async Task IsNoOpWhenNoTemplateFound()
         {
             // Arrange
-            var renderer = new StubRenderer(new Dictionary<string, string>());
+            var renderer = new StubDescriptionRenderer(new Dictionary<string, string>());
 
             var transformer = CreateTransformer(renderer);
             var operation = new OpenApiOperation();
@@ -91,7 +92,7 @@ public class SwazorOperationTransformerTest
         public async Task PreservesExistingDescriptionWhenNoTemplateMatches()
         {
             // Arrange
-            var renderer = new StubRenderer(new Dictionary<string, string>());
+            var renderer = new StubDescriptionRenderer(new Dictionary<string, string>());
 
             var transformer = CreateTransformer(renderer);
             var operation = new OpenApiOperation { Description = "original" };
@@ -108,7 +109,7 @@ public class SwazorOperationTransformerTest
         public async Task DoesNotThrowWhenRendererReturnsNull()
         {
             // Arrange
-            var renderer = new StubRenderer(new Dictionary<string, string> { ["Products_GetById"] = null! });
+            var renderer = new StubDescriptionRenderer(new Dictionary<string, string> { ["Products_GetById"] = null! });
 
             var transformer = CreateTransformer(renderer);
 
@@ -121,18 +122,5 @@ public class SwazorOperationTransformerTest
             // Assert
             Assert.AreEqual("original", operation.Description);
         }
-    }
-
-    private sealed class StubRenderer(Dictionary<string, string> templates) : IDescriptionRenderer
-    {
-        public bool TemplateExists(string templateKey) => templates.ContainsKey(templateKey);
-
-        public Task<string?> RenderAsync(string templateKey, OperationDescriptionContext context, CancellationToken cancellationToken = default)
-            => Task.FromResult(templates.GetValueOrDefault(templateKey));
-    }
-
-    private sealed class EmptyServiceProvider : IServiceProvider
-    {
-        public object? GetService(Type serviceType) => null;
     }
 }

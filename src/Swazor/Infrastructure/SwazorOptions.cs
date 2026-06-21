@@ -6,9 +6,9 @@ namespace Swazor.Infrastructure;
 public sealed class SwazorOptions
 {
     /// <summary>
-    /// Directory containing the <c>.cshtml</c> description templates,
-    /// resolved relative to <c>IWebHostEnvironment.ContentRootPath</c>.
-    /// Defaults to <c>Descriptions</c>.
+    /// Project-relative folder holding the <c>.cshtml</c> description templates.
+    /// The templates are compiled into the application at build time.
+    /// Defaults to <c>Descriptions</c>
     /// </summary>
     public string DescriptionsPath { get; set; } = "Descriptions";
 

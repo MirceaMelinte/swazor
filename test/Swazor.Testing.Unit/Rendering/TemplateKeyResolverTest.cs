@@ -7,6 +7,7 @@ using Microsoft.OpenApi;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Swazor.Infrastructure;
 using Swazor.Rendering;
+using Swazor.Testing.Unit.Infrastructure;
 
 public class TemplateKeyResolverTest
 {
@@ -119,10 +120,5 @@ public class TemplateKeyResolverTest
             // Assert
             Assert.IsNull(result);
         }
-    }
-
-    private sealed class EmptyServiceProvider : IServiceProvider
-    {
-        public object? GetService(Type serviceType) => null;
     }
 }

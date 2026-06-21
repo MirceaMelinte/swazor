@@ -1,191 +1,139 @@
 namespace Swazor.Testing.Unit.Rendering;
 
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Swazor.Abstractions;
 using Swazor.Infrastructure;
 using Swazor.Rendering;
+using Swazor.Testing.Unit.Infrastructure;
 
-[TestClass]
 public class RazorDescriptionRendererTest
 {
-    private string tempDir = null!;
-    private string descriptionsDir = null!;
-
-    [TestInitialize]
-    public void SetUp()
-    {
-        tempDir = Path.Combine(Path.GetTempPath(), $"swazor_renderer_{Guid.NewGuid():N}");
-        descriptionsDir = Path.Combine(tempDir, "Descriptions");
-        Directory.CreateDirectory(descriptionsDir);
-    }
-
-    [TestCleanup]
-    public void TearDown()
-    {
-        if (Directory.Exists(tempDir))
-        {
-            Directory.Delete(tempDir, recursive: true);
-        }
-    }
-
-    private void WriteTemplate(string relativePath, string content)
-    {
-        var fullPath = Path.Combine(descriptionsDir, relativePath);
-        var dir = Path.GetDirectoryName(fullPath)!;
-        Directory.CreateDirectory(dir);
-        File.WriteAllText(fullPath, content);
-    }
-
-    private RazorDescriptionRenderer CreateRenderer()
-    {
-        var options = Options.Create(new SwazorOptions { DescriptionsPath = "Descriptions" });
-        var environment = new StubWebHostEnvironment(tempDir);
-        var logger = NullLogger<RazorDescriptionRenderer>.Instance;
-
-        return new RazorDescriptionRenderer(options, environment, logger);
-    }
-
     private static OperationDescriptionContext CreateContext(
         string httpMethod = "GET",
-        string relativePath = "/api/test",
-        string documentName = "v1") =>
+        string relativePath = "/api/products",
+        string documentName = "v1",
+        string? summary = null) =>
         new()
         {
             HttpMethod = httpMethod,
             RelativePath = relativePath,
-            DocumentName = documentName
+            DocumentName = documentName,
+            Summary = summary
         };
+
+    private static RazorDescriptionRenderer CreateRenderer(IRazorViewRenderer viewRenderer, string descriptionsPath = "Descriptions")
+    {
+        var options = Options.Create(new SwazorOptions { DescriptionsPath = descriptionsPath });
+
+        return new RazorDescriptionRenderer(viewRenderer, options, NullLogger<RazorDescriptionRenderer>.Instance);
+    }
+
+    private static RazorDescriptionRenderer CreateRealRenderer(string descriptionsPath = "Descriptions")
+    {
+        var services = new ServiceCollection();
+        services.AddRazorViewRendering();
+
+        var viewRenderer = services.BuildServiceProvider().GetRequiredService<IRazorViewRenderer>();
+
+        return CreateRenderer(viewRenderer, descriptionsPath);
+    }
 
     [TestClass]
     public class RenderAsync : RazorDescriptionRendererTest
     {
         [TestMethod, TestCategory("RazorDescriptionRenderer"), TestCategory("RenderAsync")]
-        public async Task ReturnsRenderedHtmlForValidTemplate()
+        public async Task RendersCompiledViewWithStronglyTypedModel()
         {
             // Arrange
-            WriteTemplate("Test.cshtml", "<p>Test description</p>");
-
-            var renderer = CreateRenderer();
+            var renderer = CreateRealRenderer();
+            var context = CreateContext(httpMethod: "GET", relativePath: "/api/products");
 
             // Act
-            var result = await renderer.RenderAsync("Test", CreateContext());
+            var (templateExists, html) = await renderer.RenderAsync("Typed", context);
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.IsTrue(result.Contains("<p>Test description</p>"));
+            Assert.IsTrue(templateExists);
+            Assert.IsNotNull(html);
+            Assert.IsTrue(html.Contains("<p>GET /api/products</p>"));
         }
 
         [TestMethod, TestCategory("RazorDescriptionRenderer"), TestCategory("RenderAsync")]
-        public async Task ReturnsNullForNonExistentTemplate()
+        public async Task RendersViewInSubdirectory()
         {
             // Arrange
-            var renderer = CreateRenderer();
+            var renderer = CreateRealRenderer();
+            var context = CreateContext(documentName: "v1");
 
             // Act
-            var result = await renderer.RenderAsync("Missing", CreateContext());
+            var (templateExists, html) = await renderer.RenderAsync("Sub/Nested", context);
 
             // Assert
-            Assert.IsNull(result);
+            Assert.IsTrue(templateExists);
+            Assert.IsNotNull(html);
+            Assert.IsTrue(html.Contains("nested v1"));
         }
 
         [TestMethod, TestCategory("RazorDescriptionRenderer"), TestCategory("RenderAsync")]
-        public async Task HandlesModelDynamicTemplate()
+        public async Task HtmlEncodesModelValues()
         {
             // Arrange
-            WriteTemplate("DynModel.cshtml", "<p>@Model.HttpMethod @Model.RelativePath</p>");
-
-            var renderer = CreateRenderer();
-            var context = CreateContext(httpMethod: "POST", relativePath: "/api/items");
+            var renderer = CreateRealRenderer();
+            var context = CreateContext(summary: "<script>alert('xss')</script>");
 
             // Act
-            var result = await renderer.RenderAsync("DynModel", context);
+            var (templateExists, html) = await renderer.RenderAsync("Encode", context);
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.IsTrue(result.Contains("<p>POST /api/items</p>"));
+            Assert.IsTrue(templateExists);
+            Assert.IsNotNull(html);
+            Assert.IsFalse(html.Contains("<script>"));
+            Assert.IsTrue(html.Contains("&lt;script&gt;"));
         }
 
         [TestMethod, TestCategory("RazorDescriptionRenderer"), TestCategory("RenderAsync")]
-        public async Task HandlesStronglyTypedModelTemplate()
+        public async Task ReportsTemplateMissingForUnknownKey()
         {
             // Arrange
-            WriteTemplate(
-                "TypedModel.cshtml",
-                "@model Swazor.Rendering.OperationDescriptionContext\n<p>@Model.HttpMethod</p>");
-            var renderer = CreateRenderer();
-            var context = CreateContext(httpMethod: "DELETE");
+            var renderer = CreateRealRenderer();
 
             // Act
-            var result = await renderer.RenderAsync("TypedModel", context);
+            var (templateExists, html) = await renderer.RenderAsync("DoesNotExist", CreateContext());
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.IsTrue(result.Contains("<p>DELETE</p>"));
+            Assert.IsFalse(templateExists);
+            Assert.IsNull(html);
         }
 
         [TestMethod, TestCategory("RazorDescriptionRenderer"), TestCategory("RenderAsync")]
-        public async Task ModelPropertiesAccessibleInOutput()
+        public async Task MapsTemplateKeyToConfiguredViewPath()
         {
             // Arrange
-            WriteTemplate(
-                "Props.cshtml",
-                "<ul><li>@Model.HttpMethod</li><li>@Model.RelativePath</li><li>@Model.DocumentName</li></ul>");
-            var renderer = CreateRenderer();
-            var context = CreateContext(httpMethod: "PUT", relativePath: "/api/widgets", documentName: "v2");
+            var viewRenderer = new StubViewRenderer("<p>ok</p>");
+            var renderer = CreateRenderer(viewRenderer, descriptionsPath: "Docs/Api");
 
             // Act
-            var result = await renderer.RenderAsync("Props", context);
+            await renderer.RenderAsync("Products_GetById", CreateContext());
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.IsTrue(result.Contains("<li>PUT</li>"));
-            Assert.IsTrue(result.Contains("<li>/api/widgets</li>"));
-            Assert.IsTrue(result.Contains("<li>v2</li>"));
+            Assert.AreEqual("/Docs/Api/Products_GetById.cshtml", viewRenderer.LastViewPath);
         }
-    }
 
-    [TestClass]
-    public class TemplateExists : RazorDescriptionRendererTest
-    {
-        [TestMethod, TestCategory("RazorDescriptionRenderer"), TestCategory("TemplateExists")]
-        public void ReturnsTrueForExistingTemplate()
+        [TestMethod, TestCategory("RazorDescriptionRenderer"), TestCategory("RenderAsync")]
+        public async Task ReportsTemplateExistsButNullHtmlWhenRenderThrows()
         {
             // Arrange
-            WriteTemplate("Present.cshtml", "<p>Here</p>");
-            var renderer = CreateRenderer();
+            var viewRenderer = new StubViewRenderer(_ => throw new InvalidOperationException("boom"));
+            var renderer = CreateRenderer(viewRenderer);
 
             // Act
-            var result = renderer.TemplateExists("Present");
+            var (templateExists, html) = await renderer.RenderAsync("Typed", CreateContext());
 
             // Assert
-            Assert.IsTrue(result);
+            Assert.IsTrue(templateExists);
+            Assert.IsNull(html);
         }
-
-        [TestMethod, TestCategory("RazorDescriptionRenderer"), TestCategory("TemplateExists")]
-        public void ReturnsFalseForMissingTemplate()
-        {
-            // Arrange
-            var renderer = CreateRenderer();
-
-            // Act
-            var result = renderer.TemplateExists("Gone");
-
-            // Assert
-            Assert.IsFalse(result);
-        }
-    }
-
-    private sealed class StubWebHostEnvironment(string contentRootPath) : IWebHostEnvironment
-    {
-        public string WebRootPath { get; set; } = string.Empty;
-        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string ApplicationName { get; set; } = "TestApp";
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
-        public string ContentRootPath { get; set; } = contentRootPath;
-        public string EnvironmentName { get; set; } = "Testing";
     }
 }

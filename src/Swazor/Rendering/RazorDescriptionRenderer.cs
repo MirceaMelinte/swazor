@@ -1,35 +1,40 @@
 namespace Swazor.Rendering;
 
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Swazor.Abstractions;
 using Swazor.Infrastructure;
 
 internal sealed class RazorDescriptionRenderer(
+    IRazorViewRenderer renderer,
     IOptions<SwazorOptions> options,
-    IWebHostEnvironment environment,
     ILogger<RazorDescriptionRenderer> logger) : IDescriptionRenderer
 {
-    private readonly SwazorRazorEngine engine = new(Path.Combine(environment.ContentRootPath, options.Value.DescriptionsPath));
-
-    public async Task<string?> RenderAsync(string templateKey, OperationDescriptionContext context, CancellationToken cancellationToken = default)
+    public async Task<(bool TemplateExists, string? Html)> RenderAsync(
+        string templateKey,
+        OperationDescriptionContext context,
+        CancellationToken cancellationToken = default)
     {
+        var viewPath = ResolveViewPath(templateKey);
+
         try
         {
-            if (!engine.TemplateExists(templateKey))
-            {
-                return null;
-            }
+            var html = await renderer.RenderToStringAsync(viewPath, context, cancellationToken);
 
-            return await engine.RenderAsync(templateKey, context, cancellationToken);
+            // a null result means there is no view for this key
+            // an exception means the view exists but failed to render, handled below
+            return html is null ? (false, null) : (true, html);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to render template '{TemplateKey}'", templateKey);
-            return null;
+            return (true, null);
         }
     }
 
-    public bool TemplateExists(string templateKey) => engine.TemplateExists(templateKey);
+    private string ResolveViewPath(string templateKey)
+    {
+        var root = options.Value.DescriptionsPath.Replace('\\', '/').Trim('/');
+        return $"/{root}/{templateKey}.cshtml";
+    }
 }

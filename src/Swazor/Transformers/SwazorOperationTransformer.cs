@@ -25,16 +25,6 @@ internal sealed class SwazorOperationTransformer(
             return;
         }
 
-        if (!renderer.TemplateExists(templateKey))
-        {
-            if (options.Value.WarnOnMissingTemplate)
-            {
-                logger.LogWarning("No Swazor template found for key '{TemplateKey}'", templateKey);
-            }
-
-            return;
-        }
-
         var routeValues = context.Description.ActionDescriptor.RouteValues;
         routeValues.TryGetValue("controller", out var controllerName);
         routeValues.TryGetValue("action", out var actionName);
@@ -52,7 +42,17 @@ internal sealed class SwazorOperationTransformer(
             DocumentName = context.DocumentName
         };
 
-        var html = await renderer.RenderAsync(templateKey, descriptionContext, cancellationToken);
+        var (templateExists, html) = await renderer.RenderAsync(templateKey, descriptionContext, cancellationToken);
+
+        if (!templateExists)
+        {
+            if (options.Value.WarnOnMissingTemplate)
+            {
+                logger.LogWarning("No Swazor template found for key '{TemplateKey}'", templateKey);
+            }
+
+            return;
+        }
 
         if (html is null)
         {
