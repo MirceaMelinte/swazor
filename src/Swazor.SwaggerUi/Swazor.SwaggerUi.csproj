@@ -3,6 +3,8 @@
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <PackageId>Swazor.SwaggerUi</PackageId>
+        <Description>Swagger UI styling for Swazor. Injects scoped CSS so Razor-rendered OpenAPI operation descriptions render cleanly in both light and dark mode.</Description>
     </PropertyGroup>
 
     <ItemGroup>

@@ -10,4 +10,26 @@
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <Version>1.0.0</Version>
+        <Authors>MirceaMelinte</Authors>
+        <Company>MirceaMelinte</Company>
+        <Product>Swazor</Product>
+        <Copyright>Copyright © 2026 MirceaMelinte</Copyright>
+        <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/MirceaMelinte/swazor</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/MirceaMelinte/swazor</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageTags>openapi;swagger;swagger-ui;swashbuckle;razor;cshtml;aspnetcore;documentation;api-docs;swazor</PackageTags>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <DebugType>embedded</DebugType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" Condition="Exists('$(MSBuildThisFileDirectory)README.md')" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    </ItemGroup>
+
 </Project>
